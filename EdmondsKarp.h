@@ -228,6 +228,7 @@ public:
 		}
 	};
 
+	//sum up the streams from the source
 	int summ_flow()
 	{
 		if (start)
