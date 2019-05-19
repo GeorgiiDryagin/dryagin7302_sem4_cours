@@ -56,11 +56,15 @@ struct Edge;
 class Node
 {
 private:
-public:	char name;
-		Edge* sons;
-		int number_sons;
-		Node(char n_name) { name = n_name; sons = nullptr; number_sons = 0; };
-		~Node() { if (sons) free(sons); };
+public:
+	char name;
+	Edge** sons;
+	int number_sons;
+	Node(char n_name) { name = n_name; sons = nullptr; number_sons = 0; };
+	~Node()
+	{
+		if (sons) free(sons);
+	}
 };
 
 struct Edge
@@ -93,12 +97,13 @@ private:
 	int number_edges;
 	bool calculated;
 
+
 	void res_show_in_width(Node* current)
 	{
 		for (int i = 0; i < current->number_sons; i++)
 		{
-			cout << current->name << (current->sons[i]).end->name << " " << (current->sons[i]).flow << "/" << (current->sons[i]).bandwidth << ";  "/*<< endl*/;
-			res_show_in_width(current->sons[i].end);
+			cout << current->name << (current->sons[i])->end->name << " " << (current->sons[i])->flow << "/" << (current->sons[i])->bandwidth << ";  "/*<< endl*/;
+			res_show_in_width(current->sons[i]->end);
 		}
 	};
 
@@ -126,7 +131,7 @@ private:
 				{
 					for (int i = 0; i < current->part->node->number_sons; i++)	//for all sons of current node
 					{
-						if (current->part->node->sons[i].bandwidth - current->part->node->sons[i].flow > 0)	//if the flow is not max
+						if (current->part->node->sons[i]->bandwidth - current->part->node->sons[i]->flow > 0)	//if the flow is not max
 						{
 							tail->next = new shortest_way_list;	//add to the end of list
 							tail = tail->next;
@@ -134,8 +139,8 @@ private:
 							tail->part = new shortest_way;
 
 							tail->part->parent = current->part;	//the way back from tail is current 
-							tail->part->node = current->part->node->sons[i].end;
-							tail->part->way_to_parent = &(current->part->node->sons[i]);
+							tail->part->node = current->part->node->sons[i]->end;
+							tail->part->way_to_parent = (current->part->node->sons[i]);
 						}
 					}
 					current = current->next;
@@ -145,6 +150,32 @@ private:
 			else return nullptr;
 		}
 		else throw invalid_argument("Can't find shorthest in empty");
+	};
+
+	Node** get_all_nodes(int& num)
+	{
+		if (start)
+		{
+			Node** res = (Node**)malloc(sizeof(Node*));
+			*res = start;
+			num = 1;
+			for (int i = 0; i < number_edges; i++)
+			{
+				bool flag = 1;
+				for (int j = 0; j < num && flag; j++)
+					if (edges[i]->end == res[j])
+						flag = 0;
+				if (flag)
+				{
+					res = (Node**)realloc(res, (num + 1) * sizeof(Node*));
+					res[num] = edges[i]->end;
+					cout << res[num]->name << "  ";
+					num++;
+				}
+			}
+			return res;
+		}
+		else return nullptr;
 	};
 
 public:
@@ -159,8 +190,18 @@ public:
 
 	~Web()
 	{
-		if (start) free(start);
+		int num = 0;
+		Node** all_nodes = get_all_nodes(num);
+		for (int i = 0; i < num; i++)
+		{
+			all_nodes[i]->~Node();
+			free(all_nodes[i]);
+		}
+		free(all_nodes);
 		if (edges) 	free(edges);
+		start = nullptr;
+		finish = nullptr;
+		edges = nullptr;
 	}
 
 	void add_edge(char n_begin, char n_end, int n_bandwidth)
@@ -190,17 +231,20 @@ public:
 				if (n_begin == 's') start = from;
 				if (n_end == 't') finish = to;
 
-				from->sons = (Edge*)realloc(from->sons, (from->number_sons + 1) * sizeof(Edge));
-				from->sons[from->number_sons].begin = from;
-				from->sons[from->number_sons].end = to;
-				from->sons[from->number_sons].bandwidth = n_bandwidth;
-				from->sons[from->number_sons].flow = 0;
+				from->sons = (Edge**)realloc(from->sons, (from->number_sons + 1) * sizeof(Edge*));	//set deta to new edge
+
+				from->sons[from->number_sons] = (Edge*)malloc(sizeof(Edge));
+				from->sons[from->number_sons]->begin = from;
+				from->sons[from->number_sons]->end = to;
+				from->sons[from->number_sons]->bandwidth = n_bandwidth;
+				from->sons[from->number_sons]->flow = 0;
 
 				edges = (Edge**)realloc(edges, (number_edges + 1) * sizeof(Edge*));
-				edges[number_edges] = &(from->sons[from->number_sons]);
+				edges[number_edges] = (from->sons[from->number_sons]);
 
 				number_edges++;
 				from->number_sons++;
+				show_edges();
 			}
 			else
 				throw invalid_argument("Trying add an existing edge");
@@ -214,31 +258,35 @@ public:
 
 	void EdmondsKarp()
 	{
-		shortest_way* path = shortest(start, finish);	//find a shortest way from start to finish
+		if (start && finish)
+		{
+			shortest_way* path = shortest(start, finish);	//find a shortest way from start to finish
 
-		if (path)
-			while (path)
-			{
-				shortest_way* current = path;
-				int min_bandwidth = current->way_to_parent->bandwidth;
-
-				while (current)	//find the min bandwidth of edges (current) in path
+			if (path)
+				while (path)
 				{
-					if (current->way_to_parent)
-						if (current->way_to_parent->bandwidth - current->way_to_parent->flow < min_bandwidth) min_bandwidth = current->way_to_parent->bandwidth - current->way_to_parent->flow;
-					current = current->parent;
-				}
+					shortest_way* current = path;
+					int min_bandwidth = current->way_to_parent->bandwidth;
 
-				current = path;
-				while (current)
-				{
-					if (current->way_to_parent)
-						current->way_to_parent->flow += min_bandwidth;
-					current = current->parent;
+					while (current)	//find the min bandwidth of edges (current) in path
+					{
+						if (current->way_to_parent)
+							if (current->way_to_parent->bandwidth - current->way_to_parent->flow < min_bandwidth) min_bandwidth = current->way_to_parent->bandwidth - current->way_to_parent->flow;
+						current = current->parent;
+					}
+
+					current = path;
+					while (current)
+					{
+						if (current->way_to_parent)
+							current->way_to_parent->flow += min_bandwidth;
+						current = current->parent;
+					}
+					path = shortest(start, finish);
 				}
-				path = shortest(start, finish);
-			}
-		else throw runtime_error("Can't find way from start to finish");
+			else throw runtime_error("Can't find way from start to finish");
+		}
+		else throw runtime_error("No start or finish node");
 	};
 
 	void show_in_width()
@@ -275,7 +323,7 @@ public:
 		{
 			int res = 0;
 			for (int i = 0; i < start->number_sons; i++)
-				res += start->sons[i].flow;
+				res += start->sons[i]->flow;
 			return res;
 		}
 		else throw runtime_error("No start node to count flow");
@@ -312,7 +360,7 @@ public:
 								char* to_int = (char*)malloc((1 + j - i) * sizeof(char));
 								for (int n = 0; n < j - i; n++)
 									to_int[n] = buff[i + n];
-								to_int[j-i] = 0;
+								to_int[j - i] = 0;
 								add_edge(out, in, str_to_int(to_int));
 							}
 				}
