@@ -10,15 +10,6 @@ namespace UnitTest1
 	{
 	public:
 
-		TEST_METHOD(example_from_teacher_file)
-		{
-			Web web;
-			web.from_file();
-
-			web.EdmondsKarp();
-			Assert::AreEqual(5, web.summ_flow());
-		}
-
 		TEST_METHOD(example_from_teacher)
 		{
 			Web web;
