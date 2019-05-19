@@ -8,6 +8,49 @@
 
 using namespace std;
 
+int str_to_int(char* s)
+{
+	if (s == NULL)
+		return NULL;
+
+	if (*s == '\0')
+		return NULL;
+
+	int i = 0,
+		n = 0,
+		a = 0,
+		sign;
+
+	if (*s == '-')
+	{
+		sign = -1;
+		i++;
+	}
+	else
+		sign = 1;
+
+	int flag = 1;
+
+	do
+	{
+		if (s[i] >= '0' && s[i] <= '9')
+		{
+			n *= 10;
+			a = ((int)s[i]) - 48;
+			n += a;
+			i++;
+		}
+		else
+		{
+			n = NULL;
+			flag = 0;
+		}
+	} while (s[i] != '\0' && flag);
+
+	n *= sign;
+	return n;
+}
+
 struct Edge;
 
 class Node
@@ -47,7 +90,6 @@ private:
 	Node* start;
 	Node* finish;
 	Edge** edges;
-	int number_nodes;
 	int number_edges;
 	bool calculated;
 
@@ -112,7 +154,6 @@ public:
 		finish = nullptr;
 		edges = nullptr;
 		number_edges = 0;
-		number_nodes = 0;
 		calculated = 0;
 	};
 
@@ -167,7 +208,7 @@ public:
 		else
 		{
 			if (n_begin == n_end) throw invalid_argument("Trying to add loop edge");
-			else throw invalid_argument("Trying to add edge with zero bandwidth, why?");
+			else throw invalid_argument("Trying to add edge with bandwidth less 1");
 		}
 	}
 
@@ -228,7 +269,6 @@ public:
 		}
 	};
 
-	//sum up the streams from the source
 	int summ_flow()
 	{
 		if (start)
@@ -240,4 +280,44 @@ public:
 		}
 		else throw runtime_error("No start node to count flow");
 	};
+
+	void from_file()
+	{
+		char buff[160];
+
+		std::ifstream fin;
+		fin.open("text.txt");
+		if (!fin)
+			throw runtime_error("File not found");
+		//go to the beginning of the file
+		fin.seekg(fin.beg);
+		while (!fin.eof())
+		{
+			fin.getline(buff, 160);
+			if (buff[0])
+			{
+				char out = 0;
+				char in = 0;
+				int bandwidth = 0;
+				for (int i = 0; i < strlen(buff); i++)
+				{
+					if (buff[i] != ' ' && out == 0) out = buff[i];		//set start name
+					else
+						if (buff[i] != ' ' && in == 0) in = buff[i];	//set fiish name
+						else
+							if (buff[i] != ' ')							//set bandwidth
+							{
+								int j = i;
+								for (; j < strlen(buff); j++);
+								char* to_int = (char*)malloc((1 + j - i) * sizeof(char));
+								for (int n = 0; n < j - i; n++)
+									to_int[n] = buff[i + n];
+								to_int[j-i] = 0;
+								add_edge(out, in, str_to_int(to_int));
+							}
+				}
+			}
+		}
+		fin.close();
+	}
 };
